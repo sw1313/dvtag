@@ -3,11 +3,10 @@ __all__ = [
     "scrape",
 ]
 
-
 import json
 import re
 from html import unescape
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from ._doujin_voice import DoujinVoice
 from ._utils import create_request_session
@@ -31,7 +30,23 @@ def _get_200(url):
 
 
 def scrape(workno: str) -> DoujinVoice:
-    url = f"https://www.dlsite.com/maniax/work/=/product_id/{workno}.html"
+    # First visit the URL with the workno from the folder name
+    initial_url = f"https://www.dlsite.com/maniax/work/=/product_id/{workno}.html"
+    rsp = _get_200(initial_url)
+
+    # 检查是否发生重定向
+    if rsp.url == initial_url:
+        # 未发生重定向，直接使用 initial_url 并添加 locale 参数
+        parsed_url = urlparse(initial_url)
+        base_url = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}"
+        url = f"{base_url}?locale=zh_CN"
+    else:
+        # 发生重定向，按原逻辑处理
+        parsed_url = urlparse(rsp.url)
+        base_url = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}"
+        url = f"{base_url}?locale=zh_CN"
+
+    # Get the HTML content from the final URL
     html = _get_200(url).text
 
     if m := re.search(r'data-product-name="(.+)"\s*data-maker-name="(.+)"', html):
@@ -46,7 +61,7 @@ def scrape(workno: str) -> DoujinVoice:
         raise ParsingError(f"no cover image url found", workno)
 
     seiyus: list[str] = []
-    if m := re.search(r"<th>声優</th>[\s\S]*?<td>[\s\S]*?(<a[\s\S]*?>[\s\S]*?)</td>", html):
+    if m := re.search(r"<th>声优</th>[\s\S]*?<td>[\s\S]*?(<a[\s\S]*?>[\s\S]*?)</td>", html):
         seiyu_list_html = m.group(1)
         for seiyu_html in re.finditer(r"<a[\s\S]*?>(.+?)<", seiyu_list_html):
             seiyus.append(unescape(seiyu_html.group(1)))
