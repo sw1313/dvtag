@@ -15,11 +15,7 @@ For every supported audio file format found inside each of these directories, DV
 暂时没修改原安装部分，可能需要直接运行main
 
 DVTAG requires Python 3.9 or higher. 
-```
 
-## Usage
-
-```
 $ dvtag -h
 usage: python main.py [-h] [-v] [-w2f] [-w2m] dirpath
 
