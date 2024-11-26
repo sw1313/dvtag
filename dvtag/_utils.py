@@ -18,7 +18,7 @@ import requests
 from mutagen.flac import Picture
 from mutagen.id3 import PictureType
 from natsort import os_sort_key
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from requests.adapters import HTTPAdapter, Retry
 
 _workno_pat = re.compile(r"(R|B|V)J\d{6}(\d\d)?", flags=re.IGNORECASE)
@@ -40,23 +40,27 @@ def _walk(basepath: Path):
             yield f
 
 
-def get_audio_paths_list(basepath: Path) -> Tuple[List[List[Path]], List[List[Path]], List[List[Path]]]:
-    """Gets audio files(Path) from basepath recursively
+def get_audio_paths_list(basepath: Path) -> Tuple[List[List[Path]], List[List[Path]], List[List[Path]], List[List[Path]]]:
+    """Gets audio and video files(Path) from basepath recursively
 
     Args:
         basepath (Path): base path
 
     Returns:
-        Tuple[List[List[Path]], List[List[Path]], List[List[Path]]]: flac paths list, m4a paths list, mp3 paths list
+        Tuple[List[List[Path]], List[List[Path]], List[List[Path]], List[List[Path]]]: 
+        flac paths list, m4a paths list, mp3 paths list, mp4 paths list
     """
     flac_paths_list: List[List[Path]] = []
     m4a_paths_list: List[List[Path]] = []
     mp3_paths_list: List[List[Path]] = []
+    mp4_paths_list: List[List[Path]] = []  # 新增对 .mp4 文件的支持
 
     for files in _walk(basepath):
         flac_paths: List[Path] = []
         m4a_paths: List[Path] = []
         mp3_paths: List[Path] = []
+        mp4_paths: List[Path] = []  # 用于收集当前文件夹的 .mp4 文件
+
         for file in files:
             if file.suffix.lower() == ".flac":
                 flac_paths.append(file)
@@ -64,6 +68,8 @@ def get_audio_paths_list(basepath: Path) -> Tuple[List[List[Path]], List[List[Pa
                 m4a_paths.append(file)
             elif file.suffix.lower() == ".mp3":
                 mp3_paths.append(file)
+            elif file.suffix.lower() == ".mp4":  # 添加对 .mp4 文件的判断
+                mp4_paths.append(file)
 
         if len(flac_paths):
             flac_paths_list.append(flac_paths)
@@ -71,8 +77,10 @@ def get_audio_paths_list(basepath: Path) -> Tuple[List[List[Path]], List[List[Pa
             m4a_paths_list.append(m4a_paths)
         if len(mp3_paths):
             mp3_paths_list.append(mp3_paths)
+        if len(mp4_paths):
+            mp4_paths_list.append(mp4_paths)
 
-    return flac_paths_list, m4a_paths_list, mp3_paths_list
+    return flac_paths_list, m4a_paths_list, mp3_paths_list, mp4_paths_list
 
 
 def get_workno(name: str) -> Optional[str]:
@@ -82,7 +90,7 @@ def get_workno(name: str) -> Optional[str]:
         name (str): A string
 
     Returns:
-        Optional[str]: Returns a string(upper case, like RJ123123) if found, otherwise return None
+        Optional[str]: Returns a string(upper case, like
     """
     m = _workno_pat.search(name)
     if m:
@@ -90,9 +98,21 @@ def get_workno(name: str) -> Optional[str]:
     return None
 
 
-def get_image(url: str) -> Image.Image:
-    cover_path = create_request_session().get(url, stream=True).raw
-    return Image.open(cover_path)
+def get_image(url: str) -> Optional[Image.Image]:
+    """Gets image from url
+
+    Args:
+        url (str): image url
+
+    Returns:
+        Optional[Image.Image]: Returns Image if success, otherwise None
+    """
+    try:
+        cover_path = create_request_session().get(url, stream=True).raw
+        return Image.open(cover_path)
+    except (requests.exceptions.RequestException, UnidentifiedImageError) as e:
+        print(f"Error getting image from {url}: {e}")
+        return None
 
 
 _png_modes_to_bpp = {
