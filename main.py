@@ -10,18 +10,26 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 def start(dirpath: Path, w2f: bool, w2m: bool):
-    if workno := get_workno(dirpath.name):
-        if w2f:
-            wav_to_flac(dirpath)
-        if w2m:
-            wav_to_mp3(dirpath)
-        tag(dirpath, workno)
-        return
+    # 获取所有子文件夹
+    subdirs = [file for file in dirpath.iterdir() if file.is_dir()]
 
-    for file in dirpath.iterdir():
-        if not file.is_dir():
-            continue
-        start(file, w2f, w2m)
+    # 提取每个子文件夹的 RJ 号
+    worknos = []
+    for subdir in subdirs:
+        workno = get_workno(subdir.name)
+        if workno:
+            worknos.append((subdir, workno))
+
+    # 按 RJ 号排序
+    worknos.sort(key=lambda x: x[1])
+
+    # 遍历排序后的文件夹列表
+    for subdir, workno in worknos:
+        if w2f:
+            wav_to_flac(subdir)
+        if w2m:
+            wav_to_mp3(subdir)
+        tag(subdir, workno)
 
 
 def main():
