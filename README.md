@@ -1,6 +1,6 @@
 # DVTAG
 
-A command-line tool designed to tag your doujin voice library.
+A command-line tool designed to tag your doujin voice library.照原库修复了图片刮削失败报错的问题，修复mp3不包含ID3 head报错的问题，修复某些特殊中文RJ号会进行二次跳转引导正确的RJ号，添加mp4文件的刮削，修改刮削语言为简中
 
 ## How DVTAG Works
 
@@ -32,7 +32,7 @@ options:
 
 ```
 
-Please ensure that every doujin voice folder name contains a specific work number format - like `RJ123123`, `rj123123 xxx`, `xxxx RJ01123123`, `BJ01123123`, `VJ123123`, etc.
+Please ensure that every doujin voice folder name contains a specific work number format - like `RJ123123`, `rj123123 xxx`, `xxxx RJ01123123`, `BJ01123123`, `VJ123123`, etc.asmrasmrasmr
 
 To tag your library, use the `dvtag` command:
 
