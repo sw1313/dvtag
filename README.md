@@ -12,35 +12,16 @@ For every supported audio file format found inside each of these directories, DV
 
 ## Installation
 
-DVTAG requires Python 3.9 or higher. You can install it using pip or pipx:
+暂时没修改原安装部分，可能需要直接运行main
 
-```bash
-pip install dvtag
-```
-
-or 
-
-```bash
-pipx install dvtag
-```
-
-To upgrade DVTAG, use:
-
-```bash
-pip install --upgrade dvtag
-```
-
-or
-
-```bash
-pipx upgrade dvtag
+DVTAG requires Python 3.9 or higher. 
 ```
 
 ## Usage
 
 ```
 $ dvtag -h
-usage: dvtag [-h] [-v] [-w2f] [-w2m] dirpath
+usage: python main.py [-h] [-v] [-w2f] [-w2m] dirpath
 
 Doujin Voice Tagging Tool (tagging in place)
 
@@ -60,7 +41,7 @@ Please ensure that every doujin voice folder name contains a specific work numbe
 To tag your library, use the `dvtag` command:
 
 ```bash
-dvtag /path/to/your/library
+python main.py /path/to/your/library
 ```
 
 ## Transcoding
@@ -68,7 +49,7 @@ dvtag /path/to/your/library
 Transcoding is an additional functionality of DVTAG. If you have `wav` audio files and you want to convert these all to `flac` or `mp3`, run with option `-w2f` or `-w2m`. For example:
 
 ```bash
-dvtag -w2f /path/to/your/library
+python main.py -w2f /path/to/your/library
 ```
 
 Please note that transcoding depends on ffmpeg and users seeking additional related features should use the ffmpeg tool directly.
