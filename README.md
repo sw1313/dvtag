@@ -1,6 +1,6 @@
 # DVTAG
 
-A command-line tool designed to tag your doujin voice library.照原库修复了图片刮削失败报错的问题，修复mp3不包含ID3 head报错的问题，修复某些特殊中文RJ号会进行二次跳转引导正确的RJ号，添加mp4文件的刮削，修改刮削语言为简中
+A command-line tool designed to tag your doujin voice library.照原库修复了图片刮削失败报错的问题，修复mp3不包含ID3 header报错的问题，修复某些特殊中文RJ号会进行二次跳转引导正确的RJ号，添加mp4文件的刮削，修改刮削语言为简中
 
 ## How DVTAG Works
 
