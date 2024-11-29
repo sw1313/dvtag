@@ -22,17 +22,17 @@ from ._utils import extract_titles, get_audio_paths_list, get_image, get_png_byt
 
 
 def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO], disc_number: Optional[int]):
-    sorted = list(os_sorted(mp3_paths))
-    titles = extract_titles(sorted_stems=[f.stem for f in sorted])
+    files = list(os_sorted(mp3_paths))
+    titles = extract_titles(sorted_stems=[f.stem for f in files], files=files)
 
-    for trck, title, p in zip(range(1, len(sorted) + 1), titles, sorted):
+    for trck, title, p in zip(range(1, len(files) + 1), titles, files):
         try:
-            tags = ID3(p)  # 读取标签信息
+            tags = ID3(p)
 
             # 仅在获取图片成功时才清除 APIC 标签和添加封面
             if png_bytes_arr:
                 if 'APIC:' in tags:
-                    del tags['APIC:']  # 清除原有的 APIC 标签
+                    del tags['APIC:']
                 tags.add(APIC(mime="image/png", desc="Front Cover", data=png_bytes_arr.getvalue()))
 
             # 无论图片是否获取成功，都更新其他标签信息
@@ -40,7 +40,7 @@ def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[Byt
             tags.add(TPE2(text=[dv.circle]))
             tags.add(TDRC(text=[dv.sale_date]))
             if dv.genres:
-                tags.add(TCON(text=[";".join(dv.genres)]))
+                tags.add(TCON(text=[", ".join(dv.genres)]))
             if disc_number:
                 tags.add(TPOS(text=[str(disc_number)]))
             if dv.seiyus:
@@ -48,9 +48,9 @@ def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[Byt
             tags.add(TIT2(text=[title]))
             tags.add(TRCK(text=[str(trck)]))
 
-            if ID3(p) != tags:
-                tags.save(p, v1=0)
-                logging.info(f"Tagged <track: {trck}, disc: {disc_number}, title: '{title}'> to '{p.name}'")
+            # 移除标签比较，直接保存标签
+            tags.save(p, v1=0)
+            logging.info(f"Tagged <track: {trck}, disc: {disc_number}, title: '{title}'> to '{p.name}'")
 
         except ID3NoHeaderError:
             logging.warning(f"MP3 file '{p.name}' has no ID3 header. Trying to fix with FFmpeg...")
@@ -82,13 +82,14 @@ def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[Byt
                     os.remove(temp_file_path)
                 continue
 
+            # 重新尝试添加标签
             try:
-                tags = ID3(p)  # 重新读取标签信息
+                tags = ID3(p)
 
                 # 仅在获取图片成功时才清除 APIC 标签和添加封面
                 if png_bytes_arr:
                     if 'APIC:' in tags:
-                        del tags['APIC:']  # 清除原有的 APIC 标签
+                        del tags['APIC:']
                     tags.add(APIC(mime="image/png", desc="Front Cover", data=png_bytes_arr.getvalue()))
 
                 # 无论图片是否获取成功，都更新其他标签信息
@@ -96,7 +97,7 @@ def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[Byt
                 tags.add(TPE2(text=[dv.circle]))
                 tags.add(TDRC(text=[dv.sale_date]))
                 if dv.genres:
-                    tags.add(TCON(text=[";".join(dv.genres)]))
+                    tags.add(TCON(text=[", ".join(dv.genres)]))
                 if disc_number:
                     tags.add(TPOS(text=[str(disc_number)]))
                 if dv.seiyus:
@@ -104,64 +105,59 @@ def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[Byt
                 tags.add(TIT2(text=[title]))
                 tags.add(TRCK(text=[str(trck)]))
 
-                if ID3(p) != tags:
-                    tags.save(p, v1=0)
-                    logging.info(f"Tagged <track: {trck}, disc: {disc_number}, title: '{title}'> to '{p.name}'")
+                # 移除标签比较，直接保存标签
+                tags.save(p, v1=0)
+                logging.info(f"Tagged <track: {trck}, disc: {disc_number}, title: '{title}'> to '{p.name}'")
 
-            except ID3NoHeaderError:  # 处理 FFmpeg 修复后仍然无法读取标签的情况
+            except ID3NoHeaderError:
                 logging.error(f"Failed to fix ID3 header for '{p.name}'. Skipping...")
                 continue
-
+                
 
 def tag_mp4s(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO], disc: Optional[int]):
-    sorted = list(os_sorted(files))
-    titles = extract_titles(sorted_stems=[f.stem for f in sorted])
+    sorted_files = list(os_sorted(files))
+    titles = extract_titles(sorted_stems=[f.stem for f in sorted_files], files=sorted_files)
 
-    for trck, title, p in zip(range(1, len(sorted) + 1), titles, sorted):
+    for trck, title, p in zip(range(1, len(sorted_files) + 1), titles, sorted_files):
         tags = MP4(p)
 
         # 仅在获取图片成功时才清除 covr 标签和添加封面
         if png_bytes_arr:
-            if "covr" in tags:
-                del tags["covr"]
-
-            cover = MP4Cover(png_bytes_arr.getvalue(), MP4Cover.FORMAT_PNG)
-            tags["covr"] = [cover]
+            tags["covr"] = [MP4Cover(png_bytes_arr.getvalue(), imageformat=MP4Cover.FORMAT_PNG)]
 
         # 无论图片是否获取成功，都更新其他标签信息
         tags["\xa9alb"] = [dv.name]
         tags["\xa9day"] = [dv.sale_date]
         tags["\xa9nam"] = [title]
         tags["aART"] = [dv.circle]
-        tags["\xa9ART"] = [";".join(dv.seiyus)]
-        tags["\xa9gen"] = [";".join(dv.genres)]
+        tags["\xa9ART"] = dv.seiyus
+        tags["\xa9gen"] = dv.genres
         tags["trkn"] = [(trck, 0)]
         if disc:
             tags["disk"] = [(disc, 0)]
 
-        if tags != MP4(p):
-            tags.save(p)
-            logging.info(f"Tagged <track: {trck}, disc: {disc}, title: '{title}'> to '{p.name}'")
-
+        # 移除标签比较，直接保存标签
+        tags.save(p)
+        logging.info(f"Tagged <track: {trck}, disc: {disc}, title: '{title}'> to '{p.name}'")
+        
 
 def tag_flacs(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO], disc: Optional[int]):
-    sorted = list(os_sorted(files))
-    titles = extract_titles(sorted_stems=[f.stem for f in sorted])
+    sorted_files = list(os_sorted(files))
+    titles = extract_titles(sorted_stems=[f.stem for f in sorted_files], files=sorted_files)
 
-    for trck, title, p in zip(range(1, len(sorted) + 1), titles, sorted):
+    for trck, title, p in zip(range(1, len(sorted_files) + 1), titles, sorted_files):
         tags = FLAC(p)
 
         # 仅在获取图片成功时才清除图片和添加封面
         if png_bytes_arr:
-            tags.clear_pictures()  # 清除原有图片
+            tags.clear_pictures()
 
-            image = Image.open(png_bytes_arr)
             picture = Picture()
             picture.type = 3
             picture.mime = "image/png"
             picture.desc = 'Front Cover'
             picture.data = png_bytes_arr.getvalue()
-            tags.add_picture(picture)  # 添加封面
+            tags.add_picture(picture)
 
         # 无论图片是否获取成功，都更新其他标签信息
         tags["album"] = [dv.name]
@@ -176,10 +172,10 @@ def tag_flacs(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesI
         if disc:
             tags["discnumber"] = [str(disc)]
 
-        if tags != FLAC(p):
-            tags.save(p)
-            logging.info(f"Tagged <track: {trck}, disc: {disc}>, title: '{title}'>  to '{p.name}'")
-
+        # 移除标签比较，直接保存标签
+        tags.save(p)
+        logging.info(f"Tagged <track: {trck}, disc: {disc}>, title: '{title}'> to '{p.name}'")
+        
 
 def tag(basepath: Path, workno: str):
     flac_paths_list, m4a_paths_list, mp3_paths_list, mp4_paths_list = get_audio_paths_list(basepath)  # 接收四个列表
@@ -199,7 +195,7 @@ def tag(basepath: Path, workno: str):
     logging.info(f" Album:  {dv.name}")
     logging.info(f" Seiyu:  {','.join(dv.seiyus)}")
     logging.info(f" Genre:  {','.join(dv.genres)}")
-    logging.info(f" Date:   {dv.sale_date}")
+    logging.info(f" Date:    {dv.sale_date}")
 
     try:
         image = get_image(dv.image_url)
