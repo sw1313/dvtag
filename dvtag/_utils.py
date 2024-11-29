@@ -21,6 +21,19 @@ from natsort import os_sort_key
 from PIL import Image, UnidentifiedImageError
 from requests.adapters import HTTPAdapter, Retry
 
+import configparser
+import os
+
+_config = None
+
+def get_config():
+    global _config
+    if _config is None:
+        _config = configparser.ConfigParser()
+        config_file = os.path.join(os.path.dirname(__file__), 'config.ini')
+        _config.read(config_file, encoding='utf-8')
+    return _config
+
 _workno_pat = re.compile(r"(R|B|V)J\d{6}(\d\d)?", flags=re.IGNORECASE)
 
 
@@ -40,7 +53,9 @@ def _walk(basepath: Path):
             yield f
 
 
-def get_audio_paths_list(basepath: Path) -> Tuple[List[List[Path]], List[List[Path]], List[List[Path]], List[List[Path]]]:
+def get_audio_paths_list(basepath: Path) -> Tuple[
+    List[List[Path]], List[List[Path]], List[List[Path]], List[List[Path]]
+]:
     """Gets audio and video files(Path) from basepath recursively
 
     Args:
@@ -164,12 +179,26 @@ def create_request_session(max_retries=5) -> requests.Session:
 
 
 _title_pat = re.compile(
-    r"^(#|■|◆|【|\(|(?:【?tr(?:ack)?|トラック|音轨|とらっく)[\-_‗\s\.．・,：]*)?([\d]+)([\-_‗\s\.．・,：】\)]+|(?=[「『【]))(.+)",
+    r"^(#|■|◆|【|$|(?:【?tr(?:ack)?|トラック|音轨|とらっく)[\-_‗\s\.．・,：]*)?([\d]+)([\-_‗\s\.．・,：】$]+|(?=[「『【]))(.+)",
     re.IGNORECASE,
 )
 
 
-def extract_titles(sorted_stems: List[str]) -> List[str]:
+def extract_titles(sorted_stems: List[str], files: List[Path]) -> List[str]:
+    """
+    从排序后的文件名列表中提取标题，并根据文件类型和父文件夹名称添加后缀。
+
+    Args:
+        sorted_stems (List[str]): 排序后的文件名列表（不含扩展名）。
+        files (List[Path]): 对应的文件路径列表。
+
+    Returns:
+        List[str]: 提取的标题列表，包含后缀。
+    """
+    config = get_config()
+    add_file_type_suffix = config.getboolean('Settings', 'add_file_type_suffix', fallback=True)
+    add_sound_effect_suffix = config.getboolean('Settings', 'add_sound_effect_suffix', fallback=True)
+
     if len(sorted_stems) <= 1:
         return sorted_stems
 
@@ -186,10 +215,10 @@ def extract_titles(sorted_stems: List[str]) -> List[str]:
         if pref == "(" and not suff.startswith(")"):
             return sorted_stems
 
-    extracted: List[str] = [m.group(4)]
+    extracted: List[str] = []
 
-    for i in range(1, len(sorted_stems)):
-        m = _title_pat.match(sorted_stems[i])
+    for i, stem in enumerate(sorted_stems):
+        m = _title_pat.match(stem)
         if not m:
             return sorted_stems
 
@@ -198,7 +227,25 @@ def extract_titles(sorted_stems: List[str]) -> List[str]:
         if int(m.group(2)) - i != diff:
             return sorted_stems
 
-        if (title := m.group(4)) in extracted:
+        title = m.group(4)
+        
+        # 添加文件类型后缀
+        if add_file_type_suffix:
+            if files[i].suffix.lower() == ".mp3":
+                title += "-便携版"
+            elif files[i].suffix.lower() == ".flac":
+                title += "-高保真"
+
+        # 添加音效后缀
+        if add_sound_effect_suffix:
+            parent_folder_name = files[i].parent.name.lower()
+            if any(keyword in parent_folder_name for keyword in ("se", "效果音", "音效")):
+                if any(keyword in parent_folder_name for keyword in ("无", "無", "入れ前", "なし", "off", "no")):
+                    title += "-无音效"
+                elif any(keyword in parent_folder_name for keyword in ("有", "あり", "含", "on")):
+                    title += "-含音效"
+
+        if title in extracted:
             return sorted_stems
 
         extracted.append(title)
