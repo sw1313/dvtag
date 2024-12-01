@@ -2,6 +2,7 @@ __all__ = [
     "tag",
 ]
 
+import configparser
 import logging
 import os
 import subprocess
@@ -28,7 +29,7 @@ from ._utils import (
     extract_mp4_tags,
 )
 
-def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO], disc_number: Optional[int]):
+def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO], disc_number: Optional[int], add_chinese_tag: bool):
     """
     为 MP3 文件添加标签信息。
 
@@ -37,6 +38,7 @@ def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[Byt
         dv (DoujinVoice): 包含标签信息的对象。
         png_bytes_arr (Optional[BytesIO]): 封面图片的字节数组，可选。
         disc_number (Optional[int]): 光盘编号，可选。
+        add_chinese_tag (bool): 是否添加中文标签。
     """
     files = list(os_sorted(mp3_paths))
     titles = extract_titles(sorted_stems=[f.stem for f in files], files=files)
@@ -50,6 +52,16 @@ def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[Byt
             for frame in ['APIC:', 'TALB', 'TPE2', 'TDRC', 'TCON', 'TPOS', 'TPE1', 'TIT2', 'TRCK']:
                 if frame in tags:
                     del tags[frame]
+
+            # 添加中文标签
+            if add_chinese_tag:  
+                lrc_files = [f for f in p.parent.iterdir() if f.name.startswith(p.stem) and f.suffix.endswith(".lrc")]
+                if lrc_files:
+                    if dv.genres:
+                        if '中文' not in dv.genres:
+                            dv.genres.append('中文')
+                    else:
+                        dv.genres = ['中文']
 
             # 添加新的标签信息
             if png_bytes_arr:
@@ -112,6 +124,16 @@ def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[Byt
                     if frame in tags:
                         del tags[frame]
 
+                # 添加中文标签
+                if add_chinese_tag:
+                    lrc_files = [f for f in p.parent.iterdir() if f.name.startswith(p.stem) and f.suffix.endswith(".lrc")]
+                    if lrc_files:
+                        if dv.genres:
+                            if '中文' not in dv.genres:
+                                dv.genres.append('中文')
+                        else:
+                            dv.genres = ['中文']
+
                 if png_bytes_arr:
                     tags.add(APIC(mime="image/png", desc="Front Cover", data=png_bytes_arr.getvalue()))
                 tags.add(TALB(text=[dv.name]))
@@ -136,7 +158,8 @@ def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[Byt
                 logging.error(f"无法修复 '{p.name}' 的 ID3 头。跳过...")
                 continue
 
-def tag_flacs(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO], disc: Optional[int]):
+
+def tag_flacs(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO], disc: Optional[int], add_chinese_tag: bool):
     """
     为 FLAC 文件添加标签信息。
 
@@ -145,6 +168,7 @@ def tag_flacs(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesI
         dv (DoujinVoice): 包含标签信息的对象。
         png_bytes_arr (Optional[BytesIO]): 封面图片的字节数组，可选。
         disc (Optional[int]): 光盘编号，可选。
+        add_chinese_tag (bool): 是否添加中文标签。
     """
     sorted_files = list(os_sorted(files))
     titles = extract_titles(sorted_stems=[f.stem for f in sorted_files], files=sorted_files)
@@ -162,6 +186,16 @@ def tag_flacs(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesI
             picture.desc = 'Front Cover'
             picture.data = png_bytes_arr.getvalue()
             tags.add_picture(picture)
+
+        # 添加中文标签
+        if add_chinese_tag:
+            lrc_files = [f for f in p.parent.iterdir() if f.name.startswith(p.stem) and f.suffix.endswith(".lrc")]
+            if lrc_files:
+                if dv.genres:
+                    if '中文' not in dv.genres:
+                        dv.genres.append('中文')
+                else:
+                    dv.genres = ['中文']
 
         # 更新标签信息
         tags["album"] = dv.name
@@ -183,7 +217,8 @@ def tag_flacs(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesI
             tags.save(p)
             logging.info(f"已为 '{p.name}' 添加标签：曲目 {trck}, 光盘 {disc}, 标题 '{title}'")
 
-def tag_mp4s(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO], disc: Optional[int]):
+
+def tag_mp4s(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO], disc: Optional[int], add_chinese_tag: bool):
     """
     为 MP4 文件添加标签信息。
 
@@ -192,6 +227,7 @@ def tag_mp4s(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO
         dv (DoujinVoice): 包含标签信息的对象。
         png_bytes_arr (Optional[BytesIO]): 封面图片的字节数组，可选。
         disc (Optional[int]): 光盘编号，可选。
+        add_chinese_tag (bool): 是否添加中文标签。
     """
     sorted_files = list(os_sorted(files))
     titles = extract_titles(sorted_stems=[f.stem for f in sorted_files], files=sorted_files)
@@ -203,6 +239,15 @@ def tag_mp4s(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO
         # 添加封面图片
         if png_bytes_arr:
             tags["covr"] = [MP4Cover(png_bytes_arr.getvalue(), imageformat=MP4Cover.FORMAT_PNG)]
+
+        # 添加中文标签
+        if add_chinese_tag and '中文' in str(p.parent):
+            if dv.genres:
+                if '中文' not in dv.genres:
+                    dv.genres.append('中文')
+            else:
+                dv.genres = ['中文']
+
         # 更新标签信息
         tags["\xa9alb"] = dv.name  # 专辑名称
         tags["\xa9day"] = dv.sale_date  # 发行日期
@@ -221,6 +266,7 @@ def tag_mp4s(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO
             tags.save(p)
             logging.info(f"已为 '{p.name}' 添加标签：曲目 {trck}, 光盘 {disc}, 标题 '{title}'")
 
+
 def tag(basepath: Path, workno: str):
     """
     主标签函数，根据提供的路径和作品编号，为音频文件添加标签。
@@ -229,6 +275,12 @@ def tag(basepath: Path, workno: str):
         basepath (Path): 音频文件的基础路径。
         workno (str): 作品编号。
     """
+
+    # 读取 config.ini 配置文件
+    config = configparser.ConfigParser()
+    config.read(os.path.join(os.path.dirname(__file__), 'config.ini'))
+    add_chinese_tag = config.getboolean('Settings', 'add_chinese_tag', fallback=True)  # 读取 add_chinese_tag 配置项，默认为 False
+
     # 获取音频文件列表
     flac_paths_list, m4a_paths_list, mp3_paths_list, mp4_paths_list = get_audio_paths_list(basepath)
     if not flac_paths_list and not m4a_paths_list and not mp3_paths_list and not mp4_paths_list:
@@ -267,25 +319,25 @@ def tag(basepath: Path, workno: str):
 
     # 为 FLAC 文件添加标签
     for flac_files in flac_paths_list:
-        tag_flacs(flac_files, dv, png_bytes_arr, disc)
+        tag_flacs(flac_files, dv, png_bytes_arr, disc, add_chinese_tag)
         if disc:
             disc += 1
 
     # 为 M4A 文件添加标签
     for m4a_files in m4a_paths_list:
-        tag_mp4s(m4a_files, dv, png_bytes_arr, disc)
+        tag_mp4s(m4a_files, dv, png_bytes_arr, disc, add_chinese_tag)
         if disc:
             disc += 1
 
     # 为 MP3 文件添加标签
     for mp3_files in mp3_paths_list:
-        tag_mp3s(mp3_files, dv, png_bytes_arr, disc)
+        tag_mp3s(mp3_files, dv, png_bytes_arr, disc, add_chinese_tag)
         if disc:
             disc += 1
 
     # 为 MP4 文件添加标签
     for mp4_files in mp4_paths_list:
-        tag_mp4s(mp4_files, dv, png_bytes_arr, disc)
+        tag_mp4s(mp4_files, dv, png_bytes_arr, disc, add_chinese_tag)
         if disc:
             disc += 1
 
