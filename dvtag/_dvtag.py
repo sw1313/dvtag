@@ -53,15 +53,20 @@ def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[Byt
                 if frame in tags:
                     del tags[frame]
 
-            # 添加中文标签
-            if add_chinese_tag:  
+            # 创建 genres 的本地副本
+            if add_chinese_tag:
                 lrc_files = [f for f in p.parent.iterdir() if f.name.startswith(p.stem) and f.suffix.endswith(".lrc")]
                 if lrc_files:
                     if dv.genres:
-                        if '中文' not in dv.genres:
-                            dv.genres.append('中文')
+                        genres = list(dv.genres)
+                        if '中文' not in genres:
+                            genres.append('中文')
                     else:
-                        dv.genres = ['中文']
+                        genres = ['中文']
+                else:
+                    genres = dv.genres
+            else:
+                genres = dv.genres
 
             # 添加新的标签信息
             if png_bytes_arr:
@@ -69,8 +74,8 @@ def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[Byt
             tags.add(TALB(text=[dv.name]))  # 专辑名称
             tags.add(TPE2(text=[dv.circle]))  # 乐团/团体
             tags.add(TDRC(text=[dv.sale_date]))  # 发行日期
-            if dv.genres:
-                tags.add(TCON(text=[", ".join(dv.genres)]))  # 流派
+            if genres:
+                tags.add(TCON(text=[", ".join(genres)]))  # 流派
             if disc_number:
                 tags.add(TPOS(text=[str(disc_number)]))  # 光盘编号
             if dv.seiyus:
@@ -124,23 +129,28 @@ def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[Byt
                     if frame in tags:
                         del tags[frame]
 
-                # 添加中文标签
+                # 创建 genres 的本地副本
                 if add_chinese_tag:
                     lrc_files = [f for f in p.parent.iterdir() if f.name.startswith(p.stem) and f.suffix.endswith(".lrc")]
                     if lrc_files:
                         if dv.genres:
-                            if '中文' not in dv.genres:
-                                dv.genres.append('中文')
+                            genres = list(dv.genres)
+                            if '中文' not in genres:
+                                genres.append('中文')
                         else:
-                            dv.genres = ['中文']
+                            genres = ['中文']
+                    else:
+                        genres = dv.genres
+                else:
+                    genres = dv.genres
 
                 if png_bytes_arr:
                     tags.add(APIC(mime="image/png", desc="Front Cover", data=png_bytes_arr.getvalue()))
                 tags.add(TALB(text=[dv.name]))
                 tags.add(TPE2(text=[dv.circle]))
                 tags.add(TDRC(text=[dv.sale_date]))
-                if dv.genres:
-                    tags.add(TCON(text=[", ".join(dv.genres)]))
+                if genres:
+                    tags.add(TCON(text=[", ".join(genres)]))
                 if disc_number:
                     tags.add(TPOS(text=[str(disc_number)]))
                 if dv.seiyus:
@@ -157,7 +167,7 @@ def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[Byt
             except ID3NoHeaderError:
                 logging.error(f"无法修复 '{p.name}' 的 ID3 头。跳过...")
                 continue
-
+                
 
 def tag_flacs(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO], disc: Optional[int], add_chinese_tag: bool):
     """
@@ -187,15 +197,20 @@ def tag_flacs(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesI
             picture.data = png_bytes_arr.getvalue()
             tags.add_picture(picture)
 
-        # 添加中文标签
+        # 创建 genres 的本地副本
         if add_chinese_tag:
             lrc_files = [f for f in p.parent.iterdir() if f.name.startswith(p.stem) and f.suffix.endswith(".lrc")]
             if lrc_files:
                 if dv.genres:
-                    if '中文' not in dv.genres:
-                        dv.genres.append('中文')
+                    genres = list(dv.genres)
+                    if '中文' not in genres:
+                        genres.append('中文')
                 else:
-                    dv.genres = ['中文']
+                    genres = ['中文']
+            else:
+                genres = dv.genres
+        else:
+            genres = dv.genres
 
         # 更新标签信息
         tags["album"] = dv.name
@@ -203,8 +218,8 @@ def tag_flacs(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesI
         tags["date"] = dv.sale_date
         tags["title"] = title
         tags["tracknumber"] = str(trck)
-        if dv.genres:
-            tags["genre"] = dv.genres
+        if genres:
+            tags["genre"] = genres
         if dv.seiyus:
             tags["artist"] = dv.seiyus
         if disc:
@@ -216,7 +231,7 @@ def tag_flacs(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesI
         if old_tags != new_tags:
             tags.save(p)
             logging.info(f"已为 '{p.name}' 添加标签：曲目 {trck}, 光盘 {disc}, 标题 '{title}'")
-
+            
 
 def tag_mp4s(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO], disc: Optional[int], add_chinese_tag: bool):
     """
@@ -240,13 +255,16 @@ def tag_mp4s(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO
         if png_bytes_arr:
             tags["covr"] = [MP4Cover(png_bytes_arr.getvalue(), imageformat=MP4Cover.FORMAT_PNG)]
 
-        # 添加中文标签
+        # 创建 genres 的本地副本
         if add_chinese_tag and '中文' in str(p.parent):
             if dv.genres:
-                if '中文' not in dv.genres:
-                    dv.genres.append('中文')
+                genres = list(dv.genres)
+                if '中文' not in genres:
+                    genres.append('中文')
             else:
-                dv.genres = ['中文']
+                genres = ['中文']
+        else:
+            genres = dv.genres
 
         # 更新标签信息
         tags["\xa9alb"] = dv.name  # 专辑名称
@@ -254,7 +272,11 @@ def tag_mp4s(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO
         tags["\xa9nam"] = title  # 标题
         tags["aART"] = dv.circle  # 专辑艺术家
         tags["\xa9ART"] = dv.seiyus  # 艺术家/声优
-        tags["\xa9gen"] = dv.genres  # 流派
+
+        # 将流派列表转换为以逗号分隔的字符串
+        if genres:
+            tags["\xa9gen"] = ', '.join(genres)  # 流派
+
         tags["trkn"] = [(trck, 0)]  # 音轨编号
         if disc:
             tags["disk"] = [(disc, 0)]  # 光盘编号
@@ -265,7 +287,7 @@ def tag_mp4s(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO
         if old_tags != new_tags:
             tags.save(p)
             logging.info(f"已为 '{p.name}' 添加标签：曲目 {trck}, 光盘 {disc}, 标题 '{title}'")
-
+            
 
 def tag(basepath: Path, workno: str):
     """
