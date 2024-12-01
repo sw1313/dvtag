@@ -75,7 +75,7 @@ def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[Byt
             tags.add(TPE2(text=[dv.circle]))  # 乐团/团体
             tags.add(TDRC(text=[dv.sale_date]))  # 发行日期
             if genres:
-                tags.add(TCON(text=[", ".join(genres)]))  # 流派
+                tags.add(TCON(text=[";".join(genres)]))  # 流派
             if disc_number:
                 tags.add(TPOS(text=[str(disc_number)]))  # 光盘编号
             if dv.seiyus:
@@ -150,7 +150,7 @@ def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[Byt
                 tags.add(TPE2(text=[dv.circle]))
                 tags.add(TDRC(text=[dv.sale_date]))
                 if genres:
-                    tags.add(TCON(text=[", ".join(genres)]))
+                    tags.add(TCON(text=[";".join(genres)]))
                 if disc_number:
                     tags.add(TPOS(text=[str(disc_number)]))
                 if dv.seiyus:
