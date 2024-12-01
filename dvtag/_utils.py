@@ -212,6 +212,9 @@ _title_pat = re.compile(
     re.IGNORECASE,
 )
 
+from typing import List
+from pathlib import Path
+
 def extract_titles(sorted_stems: List[str], files: List[Path]) -> List[str]:
     """
     从排序后的文件名列表中提取标题，并根据配置添加文件类型后缀和音效后缀。
@@ -242,23 +245,33 @@ def extract_titles(sorted_stems: List[str], files: List[Path]) -> List[str]:
         # 添加文件类型后缀
         if add_file_type_suffix:
             if file.suffix.lower() == ".mp3":
-                title += "-低音质"
+                title += "-便携版"
             elif file.suffix.lower() == ".flac":
                 title += "-高保真"
 
         # 添加音效后缀
         if add_sound_effect_suffix:
             parent_folder_name = file.parent.name.lower()
-            if any(keyword in parent_folder_name for keyword in ("se", "效果音", "音效")):
-                if any(keyword in parent_folder_name for keyword in ("无", "無", "入れ前", "なし", "off", "no")):
+            grandparent_folder_name = file.parent.parent.name.lower()  # 检查父文件夹的父文件夹
+
+            sound_effect_pattern = r"(se|効果音|音效|声音效果)"
+            no_sound_pattern = r"(没有|无|無|入れ前|なし|off|no|未含|未加|カット)"
+            has_sound_pattern = r"(有|あり|含|on|有り|付き|つき)"
+
+            if re.search(sound_effect_pattern, parent_folder_name) or \
+               re.search(sound_effect_pattern, grandparent_folder_name):
+
+                if re.search(no_sound_pattern, parent_folder_name) or \
+                   re.search(no_sound_pattern, grandparent_folder_name):
                     title += "-无音效"
-                elif any(keyword in parent_folder_name for keyword in ("有", "あり", "含", "on")):
+                elif re.search(has_sound_pattern, parent_folder_name) or \
+                     re.search(has_sound_pattern, grandparent_folder_name):
                     title += "-含音效"
 
         extracted_titles.append(title)
 
     return extracted_titles
-
+    
 def extract_id3_tags(tags: ID3) -> dict:
     """
     提取 ID3 标签的相关字段，用于比较。
