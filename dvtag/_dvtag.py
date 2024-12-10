@@ -7,6 +7,7 @@ import logging
 import os
 import subprocess
 import tempfile
+import shutil
 from io import BytesIO
 from pathlib import Path
 from typing import List, Optional
@@ -93,31 +94,41 @@ def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[Byt
         except ID3NoHeaderError:
             logging.warning(f"MP3 文件 '{p.name}' 没有 ID3 头。尝试使用 FFmpeg 修复...")
 
-            # 创建临时文件用于 FFmpeg 转码
-            temp_dir = os.path.dirname(str(p))
-            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False, dir=temp_dir) as temp_f:
-                temp_file_path = temp_f.name
+            # 创建临时文件用于 FFmpeg 转码，确保临时文件在同一目录下
+            temp_file_path = p.parent / f"{p.stem}_temp.mp3"
 
-            # 使用 FFmpeg 转码修复文件
+            # 使用 FFmpeg 转码修复文件，移除 -c:v copy
             ffmpeg_cmd = [
-                "ffmpeg", "-i", str(p), "-c:v", "copy", "-c:a", "libmp3lame",
-                "-qscale:a", "0", "-ac", "2", "-y", temp_file_path
+                "ffmpeg", "-y", "-i", str(p), "-c:a", "libmp3lame",
+                "-qscale:a", "0", "-ac", "2", str(temp_file_path)
             ]
+
             try:
-                subprocess.run(ffmpeg_cmd, check=True)
+                # 捕获 FFmpeg 的输出
+                result = subprocess.run(
+                    ffmpeg_cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    check=True
+                )
+                logging.debug(f"FFmpeg output: {result.stdout}")
+                logging.debug(f"FFmpeg errors: {result.stderr}")
             except subprocess.CalledProcessError as e:
-                logging.error(f"FFmpeg 处理 '{p.name}' 失败：{e}")
-                if os.path.exists(temp_file_path):
-                    os.remove(temp_file_path)
+                logging.error(f"FFmpeg 处理 '{p.name}' 失败：{e.stderr}")
+                if temp_file_path.exists():
+                    temp_file_path.unlink()
                 continue
 
             # 替换原始文件
             try:
-                os.replace(temp_file_path, str(p))
+                # 使用 shutil.move 以确保跨设备移动也能处理
+                shutil.move(str(temp_file_path), str(p))
+                logging.info(f"已用处理后的文件替换 '{p.name}'")
             except OSError as e:
                 logging.error(f"无法用处理后的文件替换 '{p.name}'：{e}")
-                if os.path.exists(temp_file_path):
-                    os.remove(temp_file_path)
+                if temp_file_path.exists():
+                    temp_file_path.unlink()
                 continue
 
             # 重新尝试添加标签
@@ -167,7 +178,7 @@ def tag_mp3s(mp3_paths: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[Byt
             except ID3NoHeaderError:
                 logging.error(f"无法修复 '{p.name}' 的 ID3 头。跳过...")
                 continue
-                
+
 
 def tag_flacs(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO], disc: Optional[int], add_chinese_tag: bool):
     """
@@ -231,7 +242,7 @@ def tag_flacs(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesI
         if old_tags != new_tags:
             tags.save(p)
             logging.info(f"已为 '{p.name}' 添加标签：曲目 {trck}, 光盘 {disc}, 标题 '{title}'")
-            
+
 
 def tag_mp4s(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO], disc: Optional[int], add_chinese_tag: bool):
     """
@@ -287,7 +298,7 @@ def tag_mp4s(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO
         if old_tags != new_tags:
             tags.save(p)
             logging.info(f"已为 '{p.name}' 添加标签：曲目 {trck}, 光盘 {disc}, 标题 '{title}'")
-            
+
 
 def tag(basepath: Path, workno: str):
     """
