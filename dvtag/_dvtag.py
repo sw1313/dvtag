@@ -284,9 +284,13 @@ def tag_mp4s(files: List[Path], dv: DoujinVoice, png_bytes_arr: Optional[BytesIO
         tags["aART"] = dv.circle  # 专辑艺术家
         tags["\xa9ART"] = dv.seiyus  # 艺术家/声优
 
-        # 将流派列表转换为以逗号分隔的字符串
+        # 将流派列表转换为以逗号或分号分隔的字符串
         if genres:
-            tags["\xa9gen"] = ', '.join(genres)  # 流派
+            if p.suffix.lower() == ".m4a":
+                genres_str = ';'.join(genres)  # 使用分号分隔流派
+            else:
+                genres_str = ', '.join(genres)  # 使用逗号分隔流派
+            tags["\xa9gen"] = [genres_str]  # 注意：MP4 标签需要列表
 
         tags["trkn"] = [(trck, 0)]  # 音轨编号
         if disc:
