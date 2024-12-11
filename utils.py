@@ -1,4 +1,4 @@
-"""This module provides a minimal implementation of some functions for transcoding `.wav` files to other formats using `ffmpeg`.
+"""This module provides a minimal implementation of some functions for transcoding `.wav` and `.avi` files to other formats using `ffmpeg`.
 
 If users need more flexible encoding options or advanced features (like parallel transcoding), we recommend directly using `ffmpeg` or a more feature-rich library.
 """
@@ -136,7 +136,7 @@ def wav_to_mp3(subdir: Path):
                 temp_mp3_file.unlink()
 
 
-def transcode_avi(directory: Path, format: str, options: List[str] = []):
+def transcode_avi(directory: Path, format: str, options: List[str] = [], fallback_options: List[str] = []):
     """
     转码目录中的所有 AVI 文件为指定格式。
 
@@ -144,6 +144,7 @@ def transcode_avi(directory: Path, format: str, options: List[str] = []):
     - directory (Path): 包含 AVI 文件的目录路径。
     - format (str): 目标格式（例如 "mp4", "mkv" 等）。
     - options (List[str]): 传递给 ffmpeg 的额外参数。
+    - fallback_options (List[str]): 传递给 ffmpeg 的备用参数（可选）。
     """
     for avi_file in directory.rglob("*.avi"):
         if not avi_file.is_file():
@@ -171,9 +172,28 @@ def transcode_avi(directory: Path, format: str, options: List[str] = []):
             )
         except subprocess.CalledProcessError:
             logging.error(f"转码 {avi_file.name} 到 {format} 失败。")
-            if temp_file_trans.exists():
-                temp_file_trans.unlink()
-            continue
+            if fallback_options:
+                logging.info(f"尝试使用备用参数转码 {avi_file.name}。")
+                if temp_file_trans.exists():
+                    temp_file_trans.unlink()
+                ffmpeg_cmd_fallback = ["ffmpeg", "-y", "-i", str(avi_file)] + fallback_options + [str(temp_file_trans)]
+                try:
+                    subprocess.run(
+                        ffmpeg_cmd_fallback,
+                        check=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL
+                    )
+                except subprocess.CalledProcessError:
+                    logging.error(f"使用备用参数转码 {avi_file.name} 仍然失败。")
+                    if temp_file_trans.exists():
+                        temp_file_trans.unlink()
+                    continue
+            else:
+                # 没有备用参数，直接继续
+                if temp_file_trans.exists():
+                    temp_file_trans.unlink()
+                continue
 
         if temp_file_trans.exists():
             try:
@@ -192,8 +212,11 @@ def transcode_avi(directory: Path, format: str, options: List[str] = []):
 def avi_to_mp4(directory: Path):
     """
     转码目录中的所有 AVI 文件为 MP4 格式，使用无损转换（拷贝流）。
+    如果无损转换失败，则使用 libx264 编码器进行转码。
 
     参数:
     - directory (Path): 包含 AVI 文件的目录路径。
     """
-    transcode_avi(directory, "mp4", ["-c:v", "copy", "-c:a", "copy"])
+    primary_options = ["-c:v", "copy", "-c:a", "copy"]
+    fallback_options = ["-c:v", "libx264", "-crf", "20", "-c:a", "aac", "-b:a", "320k"]
+    transcode_avi(directory, "mp4", primary_options, fallback_options)
